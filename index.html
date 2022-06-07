@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Corruptopoly</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+
+        <script>
+
+            class Square {
+                constructor(name, id) {
+                    this.name=name;
+                    this.id=id;
+                }
+            }
+            class District extends Square {
+                constructor(name, id, cost, donation, upgradeCost) {
+                    super(name, id);
+                    this.cost=cost;
+                    this.donation=donation;
+                    this.upgradeCost=upgradeCost;
+                    this.owner=null;
+                    this.level=0;
+                    this.rep="";
+                }
+
+
+                upgrade() {
+                    document.getElementById("message").innerHTML+="<br />"+this.owner.name+" upgraded "+this.name;
+                    document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+                    this.level++;
+                    this.owner.money-=this.upgradeCost;
+                    updateTracker();
+                    updateTitle(this);
+                    if(this.owner.money == 0) {
+                        document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].bankruptcy()'>Continue</button>";
+                    }
+                    else {
+                        document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].anything()'>Continue</button>";
+                    }
+                }
+            }
+            class PorkBarrel extends Square {
+                constructor(name, id) {
+                    super(name, id);
+                    this.cost=150;
+                    this.owner=null;
+                    this.level=4;
+                }
+            }
+            
+
+            
+            class Player {
+                constructor(name, pic, id) {
+
+                    this.name=name;
+                    this.pic=pic;
+                    this.id=id;
+                    this.money=1500;
+                    this.position=0;
+                    this.owned=[];
+                    this.jailTurns=0;
+                }
+                goToPrison() {
+                    this.position=40;
+                    count=0;
+                    updatePosition();
+                    updatePrison();
+                    document.getElementById("actions").innerHTML="<button onclick='turn(true)'>Continue</button>";
+                }
+                upgrading() {
+                    document.getElementById("actions").innerHTML="Which space would you like to upgrade?<br />";
+                    for(let space in this.owned) {
+                        if(this.owned[space].constructor == District && this.owned[space].level < 5 && this.money >= this.owned[space].upgradeCost) {
+                            document.getElementById("actions").innerHTML+="<button onclick='squares["+this.owned[space].id+"].upgrade()'>"+this.owned[space].name+"</button>";
+                        }
+                    }
+                }
+                anything() {
+                    var check=false;
+                    for(let space in this.owned) {
+                        if(this.owned[space].constructor == District && this.owned[space].level < 5 && this.money >= this.owned[space].upgradeCost) {
+                            check=true;
+                        }
+                    }
+                    if(check) {
+                        document.getElementById("actions").innerHTML="Do you want to upgrade any spaces?<br /><button onclick='players["+currentPlayer+"].upgrading()'>Yes</button><button onclick='turn(true)'>No</button>";
+                    }
+                    else {
+                        document.getElementById("actions").innerHTML="You have no spaces that you can upgrade.<button onclick='turn(true)'>Continue</button>";
+                    }
+                }
+                buySquare(space) {
+                    if(space.constructor == District) {
+                        do {
+                            space.rep=prompt("Enter representative name");
+                        }while(space.rep == null || space.rep == "");
+                    }
+                    document.getElementById("message").innerHTML+="<br />"+this.name+" bought "+space.name;
+                    document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+                    if(space.constructor == PorkBarrel) {
+                        for(let oldSpace in this.owned) {
+                            if(this.owned[oldSpace].constructor == PorkBarrel) {
+                                this.owned[oldSpace].level=10;
+                                space.level=10;
+                                updateTitle(this.owned[oldSpace]);
+                            }
+                        }
+                    }
+                    this.owned.push(space);
+                    space.owner=this;
+                    this.money-=space.cost;
+                    updateTracker();
+                    updateTitle(space);
+                    switch (players[currentPlayer].id){
+                        case 0:
+                            document.getElementById(space.id).style.backgroundColor = "#FFA2A2";
+                            break;
+
+                        case 1:
+                            document.getElementById(space.id).style.backgroundColor = "#6BB1FF";
+                            break;
+
+                        case 2:
+                            document.getElementById(space.id).style.backgroundColor = "#FDFBAC";
+                            break;
+
+                        case 3:
+                            document.getElementById(space.id).style.backgroundColor = "#68ff00";
+                            break;
+
+                        default:
+                            document.getElementById(space.id).style.backgroundColor = "white";
+
+                            break;
+
+                    }
+                    if(this.money == 0) {
+                        document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].bankruptcy()'>Continue</button>";
+                    }
+                    else {
+
+
+                        document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].anything()'>Continue</button>";
+                    }
+                }
+                bankruptcy() {
+                    document.getElementById("message").innerHTML+="<br />"+this.name+" is bankrupt";
+                    document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+                    count=0;
+                    leaderboard.unshift(this);
+                    players.splice(currentPlayer, 1);
+                    currentPlayer--;
+                    if(leaderboard.length == 3) {
+                        document.getElementById("tracker").innerHTML="";
+                        document.getElementById("actions").innerHTML="1: "+players[0].name;
+                        for(var i=0; i < leaderboard.length; i++) {
+                            document.getElementById("actions").innerHTML+="<br />"+(i+2)+": "+leaderboard[i].name;
+                        }
+                        players.pop();
+                        updatePosition();
+                        updatePrison();
+                    }
+                    else {
+                        document.getElementById("actions").innerHTML="<button onclick='start(true)'>Continue</button>";
+                    }
+                }
+                tax(amount) {
+                    this.money-=amount;
+                    updateTracker();
+                    if(this.money <= 0) {
+                        this.bankruptcy();
+                    }
+                    else {
+                        this.anything();
+                    }
+                }
+                move(spaces) {
+                    // Add chance/community chest
+                    // Add free parking?
+                    this.position+=spaces;
+                    
+                    //pass go
+                    if(this.position >= 40) {
+                        document.getElementById("message").innerHTML+="<br />"+this.name+" passed go and collected $200";
+                        document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+                        this.position-=40;
+                        this.money+=200;
+                        updateTracker();
+                    }
+
+                    //prompt how many spaces
+                    document.getElementById("message").innerHTML+="<br />"+this.name+" landed on "+squares[this.position].name;
+                    document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+                    updatePosition();
+
+                    //go to jail
+                    if(this.position == 30) {
+
+                        document.getElementById("message").innerHTML+="<br />"+this.name+" goes to federal prison";
+                        document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+                        document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].goToPrison()'>Go to federal prison</button>";
+                    }
+
+                    //city tax
+                    else if(this.position == 4) {
+                        document.getElementById("message").innerHTML+="<br />"+this.name+" has to pay the city tax";
+                        document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+                        document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].tax(200)'>Continue</button>";
+                    }
+
+                    //luxury tax
+                    else if(this.position == 38) {
+                        document.getElementById("message").innerHTML+="<br />"+this.name+" has to pay the luxury tax";
+                        document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+                        document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].tax(100)'>Continue</button>";
+                    }
+
+                    //chance
+                    else if (this.position == 2 || this.position == 7 || this.position == 17 || this.position == 22 || this.position == 33 || this.position == 36){
+                        document.getElementById("message").innerHTML+="<br />"+this.name+" has gotten the SCOTUS involved!";
+                        document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+                        document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].move("+Math.floor(Math.random()*37+1)+")'>Continue</button>";
+                       
+                    }
+                    
+
+                    //landed on property
+                    else if(squares[this.position].constructor == District) {
+
+                        //property is not owned yet
+                        if(!squares[this.position].owner) {
+                            if(squares[this.position].cost > this.money) {
+                                document.getElementById("actions").innerHTML="You do not have enough money to buy "+squares[this.position].name+".<button onclick='players["+currentPlayer+"].anything()'>Continue</button>";
+                            }
+                            else {
+
+                                document.getElementById("actions").innerHTML="Would you like to buy "+squares[this.position].name+"?<br /><button onclick='players["+currentPlayer+"].buySquare(squares["+this.position+"])'>Yes</button><button onclick='players["+currentPlayer+"].anything()'>No</button>";
+                            }
+                        }
+
+                        //property is owned 
+                        else if(squares[this.position].owner != this && squares[this.position].owner.money > 0) {
+                            document.getElementById("message").innerHTML+="<br />"+this.name+" pays $"+squares[this.position].donation[squares[this.position].level]+" to "+squares[this.position].owner.name;
+                            document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+                            this.money-=squares[this.position].donation[squares[this.position].level];
+                            squares[this.position].owner.money+=squares[this.position].donation[squares[this.position].level];
+                            updateTracker();
+                            if(this.money <= 0) {
+                                document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].bankruptcy()'>Continue</button>";
+                            }
+                            else {
+                                document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].anything()'>Continue</button>";
+                            }
+                        }
+                        else {
+                            document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].anything()'>Continue</button>";
+                        }
+                    }
+                    
+                    //landed on a utility space
+                    else if(squares[this.position].constructor == PorkBarrel) {
+                        if(!squares[this.position].owner) {
+                            if(squares[this.position].cost > this.money) {
+                                document.getElementById("actions").innerHTML="You do not have enough money to buy "+squares[this.position].name+".<button onclick='players["+currentPlayer+"].anything()'>Continue</button>";
+                            }
+                            else {
+
+                                document.getElementById("actions").innerHTML="Would you like to buy "+squares[this.position].name+"?<br /><button onclick='players["+currentPlayer+"].buySquare(squares["+this.position+"])'>Yes</button><button onclick='players["+currentPlayer+"].anything()'>No</button>";
+                            }
+                        }
+                        else if(squares[this.position].owner != this && squares[this.position].owner.money > 0) {
+                            document.getElementById("message").innerHTML+="<br />"+this.name+" pays $"+spaces*squares[this.position].level+" to "+squares[this.position].owner.name;
+                            document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+                            this.money-=spaces*squares[this.position].level;
+                            squares[this.position].owner.money+=spaces*squares[this.position].level;
+                            updateTracker();
+                            if(this.money <= 0) {
+                                document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].bankruptcy()'>Continue</button>";
+                            }
+                            else {
+                                document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].anything()'>Continue</button>";
+                            }
+                        }
+                        else {
+                            document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].anything()'>Continue</button>";
+                        }
+
+
+                        
+                    }
+                    else {
+                        document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].anything()'>Continue</button>";
+                    }
+
+
+                }
+
+                //simulates a dice roll
+                rollDice() {
+                    var dice1=Math.floor(Math.random()*6+1);
+                    var dice2=Math.floor(Math.random()*6+1);
+                    // var dice2=dice1;
+                    document.getElementById("message").innerHTML+="<br />"+this.name+" rolled "+(dice1+dice2);
+                    document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+
+
+                    if(dice1 == dice2) {
+                        document.getElementById("message").innerHTML+=" (doubles)";
+                        document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+                        count++;
+                        if(count == 3) {
+                            document.getElementById("message").innerHTML+="<br />"+this.name+" goes to federal prison";
+                            document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+                            this.goToPrison();
+                        }
+                        else {
+                            this.move(dice1+dice2);
+                        }
+                    }
+                    else {
+                        count=0;
+                        this.move(dice1+dice2);
+                    }
+                }
+                showSquares() {
+                    var districts="";
+                    for(let space in this.owned) {
+                        districts+=this.owned[space].name+" ";
+                    }
+                    alert(districts);
+                }
+                payBail() {
+                    document.getElementById("message").innerHTML+="<br />"+players[currentPlayer].name+" was released on bail";
+                    document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+                    this.jailTurns=0;
+                    this.money-=50;
+                    this.position=10;
+                    updatePosition();
+                    updateTracker();
+                    updatePrison();
+                    if(this.money <= 0) {
+                        this.bankruptcy();
+                    }
+                    else {
+                        this.anything();
+                    }
+                }
+                pardon() {
+                    this.jailTurns=0;
+                    updatePrison();
+                    updatePosition();
+                    this.anything();
+                }
+                jailDice() {
+                    this.jailTurns++;
+                    var dice1=Math.floor(Math.random()*6+1);
+                    var dice2=Math.floor(Math.random()*6+1);
+                    document.getElementById("message").innerHTML+="<br />"+players[currentPlayer].name+" rolled "+ (dice1+dice2);
+                    document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+
+                    if (dice1 == dice2){
+                        document.getElementById("message").innerHTML+=" (doubles)<br />"+players[currentPlayer].name+" was pardoned";
+                        document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+                        players[currentPlayer].position = 10;
+                        document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].pardon()'>Continue</button>";
+                    }
+                    else if(this.jailTurns == 3) {
+                        document.getElementById("actions").innerHTML="You have to pay the $50 bail.<button onclick='players["+currentPlayer+"].payBail()'>Continue</button>";
+                    }
+                    else if(this.money < 50) {
+                        document.getElementById("actions").innerHTML="You do not have enough money to pay the $50 bail.<button onclick='turn(true)'>Continue</button>";
+                    }
+                    else {
+                        document.getElementById("actions").innerHTML="Do you want to pay the $50 bail?<br /><button onclick='players["+currentPlayer+"].payBail()'>Yes</button><button onclick='turn(true)'>No</button>";
+                    }
+                }
+            }
+
+            //board stuff
+            var pacName="";
+            var currentPlayer=-1;
+            var count=0;
+            const pics=["https://mwiylqfonddy-html.na.app.codingrooms.com/tokens/640px-Bill_Clinton.jpg", "https://mwiylqfonddy-html.na.app.codingrooms.com/tokens/George-W-Bush.jpeg", "https://mwiylqfonddy-html.na.app.codingrooms.com/tokens/barack-obama-12782369-1-402.jpg", "https://mwiylqfonddy-html.na.app.codingrooms.com/tokens/download%20(1).jpeg"];
+            const players=[];
+            const squares=[
+                new Square("Go", 0),
+                new District("OH-12", 1, 60, [2, 10, 30, 90, 160, 250], 50),
+                new Square("Community Chest", 2),
+                new District("AZ-5", 3, 60, [4, 20, 60, 180, 320, 450], 50),
+                new Square("City Tax", 4),
+                new Square("Amtrak", 5),
+                new District("KS-3", 6, 100, [6, 30, 90, 270, 400, 550], 50),
+                new Square("Chance", 7),
+                new District("NH-1", 8, 100, [6, 30, 90, 270, 400, 550], 50),
+                new District("CO-6", 9, 120, [8, 40, 100, 300, 450, 600], 60),
+                new Square("Just Visiting", 10),
+                new District("AK", 11, 140, [10, 50, 150, 450, 625, 750], 70),
+                new PorkBarrel("Pork-barrel Electric", 12),
+                new District("HI-1", 13, 140, [10, 50, 150, 450, 625, 750], 70),
+                new District("MI-11", 14, 160, [12, 60, 180, 500, 700, 900], 80),
+                new Square("Amtrak", 15),
+                new District("MO-2", 16, 180, [14, 70, 200, 550, 750, 950], 90),
+                new Square("Community Chest", 17),
+                new District("MN-3", 18, 180, [14, 70, 200, 550, 750, 950], 90),
+                new District("GA-6", 19, 200, [16, 80, 220, 600, 800, 1000], 100),
+                new Square("Franking Privilege", 20),
+                new District("PA-6", 21, 220, [18, 90, 250, 700, 875, 1050], 110),
+                new Square("Chance", 22),
+                new District("WA-1", 23, 220, [18, 90, 250, 700, 875, 1050], 110),
+                new District("CT-4", 24, 240, [20, 100, 300, 750, 925, 1100], 120),
+                new Square("Amtrak", 25),
+                new District("TX-22", 26, 260, [22, 110, 330, 800, 975, 1150], 130),
+                new District("MA-4", 27, 260, [22, 110, 330, 800, 975, 1150], 130),
+                new PorkBarrel("Pork-barrel Water Works", 28),
+                new District("IL-6", 29, 280, [24, 120, 360, 850, 1025, 1200], 140),
+                new Square("Go to Federal Prison", 30),
+                new District("MD-8", 31, 300, [26, 130, 390, 900, 1100, 1275], 150),
+                new District("NY-3", 32, 300, [26, 130, 390, 900, 1100, 1275], 150),
+                new Square("Community Chest", 33),
+                new District("NJ-7", 34, 320, [28, 150, 450, 1000, 1200, 1400], 160),
+                new Square("Amtrak", 35),
+                new Square("Chance", 36),
+                new District("CA-18", 37, 350, [35, 175, 500, 1100, 1300, 1500], 200),
+                new Square("Luxury Tax", 38),
+                new District("VA-10", 39, 400, [50, 200, 600, 1400, 1700 ,2000], 200)
+            ];
+            const leaderboard=[];
+
+            //gathers player data and places it on the table
+            function updateTracker() {
+                document.getElementById("tracker").innerHTML="";
+                for(var i=0; i < players.length; i++) {
+                    document.getElementById("tracker").innerHTML+="<tr><td class='money'>"+players[i].name+"</td><td class='money'>$"+players[i].money+"</td><td class='money'><button onclick='players["+i+"].showSquares()'>Owned spaces</button></td></tr>";
+                }
+            }
+
+            /*
+                gathers plalyer positons, and updates it visually on the board
+            */
+            function updatePosition() {
+                for(var i=0; i < squares.length; i++) {
+                    document.getElementById(""+i).innerHTML=squares[i].name+"<br />";
+                }
+                document.getElementById("0").innerHTML="<br />";
+                for(var i=0; i < players.length; i++) {
+                    if(players[i].position != 40) {
+                        document.getElementById(""+players[i].position).innerHTML+="<img src='"+players[i].pic+"' alt='"+players[i].name+"' class='token' />"
+                    }
+                }
+            }
+
+            /*
+                places the player in "prison"
+            */
+            function updatePrison() {
+                document.getElementById("40").innerHTML="Federal Prison<br />";
+                for(var i=0; i < players.length; i++) {
+                    if(players[i].position == 40) {
+                        document.getElementById("40").innerHTML+="<img src='"+players[i].pic+"' alt='"+players[i].name+"' class='token' />"
+                    }
+                }
+            }
+            function updateTitle(space) {
+                if(space.constructor == District) {
+                    document.getElementById(""+space.id).title=space.rep+" ("+space.owner.name+")\nLevel: "+space.level+"\nUpgrade cost: $"+space.upgradeCost;
+                    for(var i=0; i < space.donation.length; i++) {
+                        document.getElementById(""+space.id).title+="\nLevel "+i+" donation: $"+space.donation[i];
+                    }
+                }
+                else {
+                    document.getElementById(""+space.id).title=space.owner.name+"\nMultiplier: "+space.level;
+                }
+            }
+
+            /*
+                gathers next player, and moves in the array to the next person
+            */
+            function turn(line) {
+
+                //move to next player
+                if(count == 0) {
+                    currentPlayer++;
+                    if(currentPlayer == players.length) {
+                        currentPlayer=0;
+                    }
+
+                    //message
+                    if(line) {
+                        document.getElementById("message").innerHTML+="<br />";
+                    }
+                    document.getElementById("message").innerHTML+="It is "+players[currentPlayer].name+"'s turn";
+                    document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+                }
+                else {
+                    document.getElementById("message").innerHTML+="<br />It is still "+players[currentPlayer].name+"'s turn";
+                    document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+                }
+
+                /*
+                    if player is in jail
+                */
+                if(players[currentPlayer].position == 40) {
+                    document.getElementById("message").innerHTML+="<br />"+players[currentPlayer].name+" is currently in jail";
+                    document.getElementById("message").scrollTop=document.getElementById("message").scrollHeight;
+                    document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].jailDice()'>Roll dice</button>";
+                    
+                    
+                }
+
+                //just roll the dice
+                else {
+                    if(count == 0) {
+                        document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].rollDice()'>Roll dice</button>";
+                    }
+                    else {
+                        document.getElementById("actions").innerHTML="<button onclick='players["+currentPlayer+"].rollDice()'>Roll again</button>";
+                    }
+                }
+            }
+            function start(line) {
+                updateTracker();
+                updatePosition();
+                turn(line);
+            }
+
+            
+            for(var i=0; i < 4; i++) {
+                do {
+                    pacName=prompt("Enter super PAC "+(i+1)+" name:");
+                }while(pacName == null || pacName == "");
+                players.push(new Player(pacName, pics[i], i));
+            }
+
+        </script>
+        <noscript>Your browser does not support JavaScript. Unfortunately you cannot play this game.</noscript>
+        <style>
+           
+            
+            .gameBoard {
+                z-index: 1;
+                background-color: #9effb8;
+                width: 100%;
+                height: 100vw;
+                position: absolute;
+                left: 0;
+                right: 0;
+                table-layout: fixed;
+            }
+            .gameSquare {
+                border: 1px solid;
+                /* position: absolute;
+                top: 30% */
+            }
+
+            .bigPiece {
+                width: 200px;
+                height: 200px;
+            }
+            
+            img{
+                z-index: 2;
+                width: 100%;
+                height: 100%;
+            }
+            .money {
+                border: 1px solid;
+                border-collapse: collapse;
+            }
+
+            .token{
+                width: 40px;
+                height: 40px;
+                position: relative;
+            }
+            a:visited {
+                color: blue;
+            }
+        </style>
+    </head>
+    <body onload="start(false)">
+        <h4>Corruptopoly</h4>
+        <p><a href="https://mwiylqfonddy-html.na.app.codingrooms.com/instructions.html" target="_blank">instructions</a></p>
+
+        <div id="message" style="width:400px;height:200px;overflow:auto;border:1px solid"></div>
+        <div id="actions"></div>
+        <table class="money" id="tracker"></table>
+
+        <table class="gameBoard gameSquare" style = "text-align: center; font-family: 'Bebas Neue', cursive;">
+            <tr> 
+                <td class = "bigPiece gameSquare" id="20" style='background:url("franking_privilege.png") no-repeat; background-size:cover; color: #2330d2' >
+                    Franking Privilege
+                </td>
+
+                <div>
+                    <td id="21" title="$220" class="gameSquare">
+                        PA-7    
+                    </td>
+                    
+                    <td id="22" class="gameSquare">
+                        Chance
+                    </td>
+
+                    <td id="23" title="$220" class="gameSquare">
+                        WA-1
+                    </td>
+                    
+                    <td id="24" title="$240" class="gameSquare">
+                        CT-4
+                    </td>
+                    
+                    <td id="25" class="gameSquare">
+                        Amtrak
+                    </td>
+                    
+                    <td id="26" title="$260" class="gameSquare">
+                        TX-22
+                    </td>
+
+                    <td id="27" title="$260" class="gameSquare">
+                        MA-4
+                    </td>
+
+                    <td id="28" title="$150" class="gameSquare">
+                        Pork-barrel Water Works
+                    </td>
+
+                    <td id="29" title="$280" class="gameSquare">
+                        IL-6
+                    </td>
+                </div>
+
+                <td class = "bigPiece gameSquare" id="30">
+                    Go to Federal Prison
+                </td>   
+            </tr>
+
+            <div >
+                <tr>
+                    <td id="19" title="$200" class="gameSquare">
+                        GA-6
+                    </td>
+                    <td colspan="9" rowspan="9" class="gameSquare">
+                        <div style="position:relative;height:100%">
+                            <img src="board.png">
+                            <div id="40" class="bigPiece gameSquare" style="position:absolute;bottom:0;background-color:red">Federal Prison</div>
+                        </div>
+                    </td>
+                    <td id="31" title="$300" class="gameSquare">
+                        MD-8
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td id="18" title="$180" class="gameSquare">
+                        MN-3
+                    </td>
+                    <td id="32" title="$300" class="gameSquare">
+                        NY-3
+                    </td>
+                </tr>
+
+                <tr>
+                    <td id="17" class="gameSquare">
+                        Community Chest
+                    </td>
+                    <td id="33" class="gameSquare">
+                        Community Chest
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td id="16" title="$180" class="gameSquare">
+                        MO-2
+                    </td>
+                    <td id="34" title="$320" class="gameSquare">
+                        NJ-7
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td id="15" class="gameSquare">
+                        Amtrak
+                    </td>
+                    <td id="35" class="gameSquare">
+                        Amtrak
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td id="14" title="$160" class="gameSquare">
+                        MI-11
+                    </td>
+                    <td id="36" class="gameSquare">
+                        Chance
+                    </td>
+                </tr>
+
+                <tr>
+                    <td id="13" title="$140" class="gameSquare">
+                        HI-1
+                    </td>
+                    <td id="37" title="$350" class="gameSquare">
+                        CA-18
+                    </td>
+                </tr>
+
+                <tr>
+                    <td id="12" title="$150" class="gameSquare">
+                        Pork-barrel Electric
+                    </td>
+                    <td id="38" class="gameSquare">
+                        Luxury Tax
+                    </td>
+                </tr>
+
+                <tr>
+                    <td id="11" title="$140" class="gameSquare">
+                        AK
+                    </td>
+                    <td id="39" title="$400" class="gameSquare">
+                        VA-10
+                    </td>
+                </tr>
+            </div>
+
+            <tr>
+                <td id="10" class="bigPiece gameSquare">
+                    Just Visiting
+                </td>
+                <td id="9" title="$120" class="gameSquare">
+                    CO-6
+                </td>
+                <td id="8" title="$100" class="gameSquare">
+                    NH-1
+                </td>
+                <td id="7" class="gameSquare">
+                    Chance
+                </td>
+                <td id="6" title="$100" class="gameSquare">
+                    KS-3
+                </td>
+                <td id="5" class="gameSquare">
+                    Amtrak
+                </td>
+                <td id="4" class="gameSquare">
+                    City Tax
+                </td>
+                <td id="3" title="$60" class="gameSquare">
+                    AZ-5
+                </td>
+                <td id="2" class="gameSquare">
+                    Community Chest
+                </td>
+                <td id="1" title="$60" class="gameSquare">
+                    OH-12
+                </td>
+                <td id="0" class="gameSquare" style='background:url("go.png") no-repeat; background-size:cover;'>
+                    
+                </td>
+            </tr>
+                
+        </table>
+    </body>
+</html>
